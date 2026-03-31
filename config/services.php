@@ -35,7 +35,6 @@ return [
 
     'uber' => [
         'enabled' => env('UBER_ENABLED', false),
-        'token' => env('UBER_ACCESS_TOKEN'),
     ],
 
     'location' => [

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\RideController;
+use App\Services\LocationServiceInterface;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/auth')->group(function (): void {
@@ -15,3 +16,9 @@ Route::prefix('v1/auth')->group(function (): void {
 });
 
 Route::post('/ride-estimates', [RideController::class, 'getEstimates']);
+
+Route::get('/test-location', function () {
+    $service = app(LocationServiceInterface::class);
+
+    return $service->getCoordinates('Ahmedabad Airport');
+});

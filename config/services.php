@@ -24,9 +24,22 @@ return [
     ],
 
     'firebase' => [
-        'project_id' => env('FIREBASE_PROJECT_ID'),
+        'project_id'       => env('FIREBASE_PROJECT_ID'),
         'credentials_json' => env('FIREBASE_CREDENTIALS_JSON'),
-        'api_key' => env('FIREBASE_API_KEY'),
+        'api_key'          => env('FIREBASE_API_KEY'),
+    ],
+
+    'google' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
+    'uber' => [
+        'enabled' => env('UBER_ENABLED', false),
+        'token'   => env('UBER_ACCESS_TOKEN'),
+    ],
+
+    'location' => [
+        'mock' => env('LOCATION_MOCK', false),
     ],
 
 ];

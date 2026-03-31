@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\RideController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/ride-estimates', [RideController::class, 'getEstimates']);
 
 Route::prefix('v1/auth')->group(function (): void {
     Route::post('send-otp', [AuthController::class, 'sendOtp'])->middleware('throttle:5,1');

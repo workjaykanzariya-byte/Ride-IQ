@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\GoogleLocationService;
+use App\Services\LocationServiceInterface;
+use App\Services\MockLocationService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +14,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        if (config('services.location.mock')) {
+            $this->app->bind(LocationServiceInterface::class, MockLocationService::class);
+        } else {
+            $this->app->bind(LocationServiceInterface::class, GoogleLocationService::class);
+        }
     }
 
     /**

@@ -29,4 +29,16 @@ return [
         'api_key' => env('FIREBASE_API_KEY'),
     ],
 
+    'google' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
+    'uber' => [
+        'enabled' => env('UBER_ENABLED', false),
+    ],
+
+    'location' => [
+        'mock' => env('LOCATION_MOCK', false),
+    ],
+
 ];

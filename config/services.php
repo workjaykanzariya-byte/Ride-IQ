@@ -24,9 +24,7 @@ return [
     ],
 
     'firebase' => [
-        'project_id' => env('FIREBASE_PROJECT_ID'),
-        'credentials_json' => env('FIREBASE_CREDENTIALS_JSON'),
-        'api_key' => env('FIREBASE_API_KEY'),
+        'credentials' => env('FIREBASE_CREDENTIALS', 'storage/app/firebase/firebase_credentials.json'),
     ],
 
     'google' => [

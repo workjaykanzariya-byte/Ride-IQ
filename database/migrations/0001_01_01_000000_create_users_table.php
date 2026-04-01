@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('phone')->unique();
-            $table->string('firebase_uid')->unique();
+            $table->string('phone')->nullable()->unique();
+            $table->string('firebase_uid')->nullable()->unique();
             $table->timestamps();
         });
 

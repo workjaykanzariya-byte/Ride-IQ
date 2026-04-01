@@ -24,7 +24,7 @@ return [
     ],
 
     'firebase' => [
-        'credentials' => env('FIREBASE_CREDENTIALS', 'storage/app/firebase/firebase_credentials.json'),
+        'credentials' => env('FIREBASE_CREDENTIALS', 'app/firebase/firebase_credentials.json'),
     ],
 
     'google' => [

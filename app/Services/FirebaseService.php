@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Str;
 use Kreait\Firebase\Auth;
 use Kreait\Firebase\Auth\Token\VerifiedIdToken;
 use Kreait\Firebase\Factory;
@@ -20,12 +19,10 @@ class FirebaseService
             throw new RuntimeException('Firebase credentials path is not configured.');
         }
 
-        $credentialsPath = Str::startsWith($credentials, ['/'])
-            ? $credentials
-            : base_path($credentials);
+        $credentialsPath = storage_path($credentials);
 
         if (! is_file($credentialsPath)) {
-            throw new RuntimeException('Firebase credentials file was not found.');
+            throw new RuntimeException('Firebase credentials file not found at: '.$credentialsPath);
         }
 
         $this->auth = (new Factory())

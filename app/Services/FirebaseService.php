@@ -2,20 +2,47 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Log;
+use Kreait\Firebase\Auth;
+use Kreait\Firebase\Auth\Token\VerifiedIdToken;
+use Kreait\Firebase\Factory;
+use RuntimeException;
 
 class FirebaseService
 {
-    public function sendOtp(string $mobile, string $otp): void
+    private Auth $auth;
+
+    public function __construct()
     {
-        if (! config('otp.debug')) {
-            return;
+        $credentials = config('services.firebase.credentials');
+
+        if (! is_string($credentials) || $credentials === '') {
+            throw new RuntimeException('Firebase credentials path is not configured.');
         }
 
-        Log::channel(config('logging.default'))->info('Mock OTP sent', [
-            'mobile' => $mobile,
-            'otp' => $otp,
-            'provider' => 'firebase-mock',
-        ]);
+        $credentialsPath = storage_path($credentials);
+
+        if (! is_file($credentialsPath)) {
+            throw new RuntimeException('Firebase credentials file not found at: '.$credentialsPath);
+        }
+
+        $this->auth = (new Factory())
+            ->withServiceAccount($credentialsPath)
+            ->createAuth();
+    }
+
+    public function verifyIdToken(string $idToken): VerifiedIdToken
+    {
+        return $this->auth->verifyIdToken($idToken, true);
+    }
+
+    public function extractUid(VerifiedIdToken $verifiedIdToken): string
+    {
+        $uid = $verifiedIdToken->claims()->get('sub');
+
+        if (! is_string($uid) || $uid === '') {
+            throw new RuntimeException('Unable to extract Firebase UID from token claims.');
+        }
+
+        return $uid;
     }
 }

@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 /**
  * @extends Factory<User>
@@ -19,10 +18,8 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
-            'mobile' => '+1'.fake()->numerify('##########'),
-            'role' => fake()->randomElement(['rider', 'driver']),
-            'remember_token' => Str::random(10),
+            'phone' => '+1'.fake()->numerify('##########'),
+            'firebase_uid' => fake()->unique()->regexify('[A-Za-z0-9_-]{28}'),
         ];
     }
 }

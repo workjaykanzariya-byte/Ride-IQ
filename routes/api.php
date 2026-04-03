@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DriverController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\RideComparisonController;
+use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
@@ -11,6 +12,9 @@ Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/auth/update-role', [AuthController::class, 'updateRole']);
+
+        Route::get('/user/profile', [UserController::class, 'profile']);
+        Route::post('/user/profile/update', [UserController::class, 'updateProfile']);
 
         Route::post('/rides/compare', [RideComparisonController::class, 'compare']);
 

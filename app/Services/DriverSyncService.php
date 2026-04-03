@@ -9,6 +9,8 @@ use App\Models\LinkedAccount;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DriverSyncService
 {
@@ -33,7 +35,17 @@ class DriverSyncService
             return 0;
         }
 
-        $trips = $providerService->fetchDriverTrips($account->access_token);
+        try {
+            $trips = $providerService->fetchDriverTrips($account->access_token);
+        } catch (Throwable $exception) {
+            Log::warning('Driver trip sync failed while fetching provider trips', [
+                'provider' => $account->provider,
+                'user_id' => $account->user_id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return 0;
+        }
 
         $synced = 0;
 

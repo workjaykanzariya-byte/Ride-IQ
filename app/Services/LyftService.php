@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
+use Throwable;
+
 class LyftService extends BaseProviderService
 {
     protected function providerName(): string
@@ -11,18 +14,30 @@ class LyftService extends BaseProviderService
 
     public function getRideOptions(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng): array
     {
-        $response = $this->request('POST', '/v1/rides/quote', [
-            'origin' => ['lat' => $pickupLat, 'lng' => $pickupLng],
-            'destination' => ['lat' => $dropLat, 'lng' => $dropLng],
-        ]);
+        try {
+            $response = $this->request('POST', '/v1/rides/quote', [
+                'origin' => ['lat' => $pickupLat, 'lng' => $pickupLng],
+                'destination' => ['lat' => $dropLat, 'lng' => $dropLng],
+            ]);
 
-        return $response['options'] ?? [];
+            return is_array($response['options'] ?? null) ? $response['options'] : [];
+        } catch (Throwable $exception) {
+            Log::warning('Lyft ride options request failed', ['error' => $exception->getMessage()]);
+
+            return [];
+        }
     }
 
     public function fetchDriverTrips(string $accessToken): array
     {
-        $response = $this->request('GET', '/v1/driver/history', [], $accessToken);
+        try {
+            $response = $this->request('GET', '/v1/driver/history', [], $accessToken);
 
-        return $response['trips'] ?? [];
+            return is_array($response['trips'] ?? null) ? $response['trips'] : [];
+        } catch (Throwable $exception) {
+            Log::warning('Lyft driver trips request failed', ['error' => $exception->getMessage()]);
+
+            return [];
+        }
     }
 }

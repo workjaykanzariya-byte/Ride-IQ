@@ -17,9 +17,9 @@ trait ApiResponse
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param  mixed  $data
      */
-    protected function error(string $message = 'Failed', array $data = [], int $statusCode = 422)
+    protected function error(string $message = 'Failed', mixed $data = null, int $statusCode = 422)
     {
         return response()->json([
             'status' => false,

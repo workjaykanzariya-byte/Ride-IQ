@@ -2,20 +2,18 @@
 
 namespace App\Services;
 
-class UberService extends BaseProviderService
+class LyftService extends BaseProviderService
 {
     protected function providerName(): string
     {
-        return 'uber';
+        return 'lyft';
     }
 
     public function getRideOptions(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng): array
     {
-        $response = $this->request('GET', '/v1/estimates', [
-            'pickup_lat' => $pickupLat,
-            'pickup_lng' => $pickupLng,
-            'drop_lat' => $dropLat,
-            'drop_lng' => $dropLng,
+        $response = $this->request('POST', '/v1/rides/quote', [
+            'origin' => ['lat' => $pickupLat, 'lng' => $pickupLng],
+            'destination' => ['lat' => $dropLat, 'lng' => $dropLng],
         ]);
 
         return $response['options'] ?? [];
@@ -23,7 +21,7 @@ class UberService extends BaseProviderService
 
     public function fetchDriverTrips(string $accessToken): array
     {
-        $response = $this->request('GET', '/v1/driver/trips', [], $accessToken);
+        $response = $this->request('GET', '/v1/driver/history', [], $accessToken);
 
         return $response['trips'] ?? [];
     }

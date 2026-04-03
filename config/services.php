@@ -32,7 +32,22 @@ return [
     ],
 
     'uber' => [
-        'enabled' => env('UBER_ENABLED', false),
+        'enabled' => env('UBER_ENABLED', true),
+        'base_url' => env('UBER_BASE_URL', ''),
+        'client_id' => env('UBER_CLIENT_ID'),
+        'client_secret' => env('UBER_CLIENT_SECRET'),
+    ],
+
+    'lyft' => [
+        'base_url' => env('LYFT_BASE_URL', ''),
+        'client_id' => env('LYFT_CLIENT_ID'),
+        'client_secret' => env('LYFT_CLIENT_SECRET'),
+    ],
+
+    'ayro' => [
+        'base_url' => env('AYRO_BASE_URL', ''),
+        'client_id' => env('AYRO_CLIENT_ID'),
+        'client_secret' => env('AYRO_CLIENT_SECRET'),
     ],
 
     'location' => [

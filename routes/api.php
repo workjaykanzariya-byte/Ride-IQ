@@ -1,17 +1,24 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\RideController;
-use App\Services\LocationServiceInterface;
+use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DriverController;
+use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\RideComparisonController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/firebase-login', [AuthController::class, 'firebaseLogin'])
-    ->middleware(['guest', 'throttle:15,1']);
+Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
+    Route::post('/auth/verify', [AuthController::class, 'verify']);
 
-Route::post('/ride-estimates', [RideController::class, 'getEstimates']);
+    Route::middleware('auth:sanctum')->group(function (): void {
+        Route::post('/auth/update-role', [AuthController::class, 'updateRole']);
 
-Route::get('/test-location', function () {
-    $service = app(LocationServiceInterface::class);
+        Route::post('/rides/compare', [RideComparisonController::class, 'compare']);
 
-    return $service->getCoordinates('Ahmedabad Airport');
+        Route::post('/driver/sync', [DriverController::class, 'sync']);
+        Route::get('/driver/dashboard', [DriverController::class, 'dashboard']);
+        Route::get('/driver/earnings', [DriverController::class, 'earnings']);
+
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::post('/notifications/read', [NotificationController::class, 'markRead']);
+    });
 });

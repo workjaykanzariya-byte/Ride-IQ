@@ -35,14 +35,24 @@ class FirebaseService
         return $this->auth->verifyIdToken($idToken, true);
     }
 
-    public function extractUid(VerifiedIdToken $verifiedIdToken): string
+    /**
+     * @return array{firebase_uid: string, phone_number: ?string}
+     */
+    public function parseToken(VerifiedIdToken $verifiedIdToken): array
     {
-        $uid = $verifiedIdToken->claims()->get('sub');
+        $claims = $verifiedIdToken->claims();
+
+        $uid = $claims->get('sub');
 
         if (! is_string($uid) || $uid === '') {
             throw new RuntimeException('Unable to extract Firebase UID from token claims.');
         }
 
-        return $uid;
+        $phone = $claims->get('phone_number');
+
+        return [
+            'firebase_uid' => $uid,
+            'phone_number' => is_string($phone) && $phone !== '' ? $phone : null,
+        ];
     }
 }

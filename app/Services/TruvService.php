@@ -79,34 +79,41 @@ class TruvService
      */
     private function send(string $method, string $uri, array $payload = []): array
     {
+        Log::info('Truv Config Debug', [
+            'base_url' => config('truv.base_url'),
+            'client_id_present' => ! empty(config('truv.client_id')),
+            'secret_present' => ! empty(config('truv.access_secret')),
+        ]);
+
+        $url = $this->buildUrl($uri);
+
         $response = match ($method) {
-            'post' => $this->client()->post($uri, $payload),
-            'delete' => $this->client()->delete($uri),
-            default => $this->client()->get($uri),
+            'post' => $this->client()->post($url, $payload),
+            'delete' => $this->client()->delete($url),
+            default => $this->client()->get($url),
         };
 
-        $this->logIfFailed($response, $method, $uri, $payload);
+        $this->logIfFailed($response, $method, $url, $payload);
 
         return $response->throw()->json() ?? [];
     }
 
     private function client(): PendingRequest
     {
-        return Http::withHeaders([
-            'X-Access-Client-ID' => (string) config('truv.client_id'),
-            'X-Access-Secret' => (string) config('truv.access_secret'),
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ])
-            ->baseUrl(rtrim((string) config('truv.base_url'), '/'))
-            ->timeout(30)
-            ->retry(2, 500);
+        return Http::timeout(30)
+            ->retry(2, 500)
+            ->withHeaders([
+                'X-Access-Client-ID' => config('truv.client_id'),
+                'X-Access-Secret' => config('truv.access_secret'),
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ]);
     }
 
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function logIfFailed(Response $response, string $method, string $uri, array $payload = []): void
+    private function logIfFailed(Response $response, string $method, string $url, array $payload = []): void
     {
         if (! $response->failed()) {
             return;
@@ -114,11 +121,16 @@ class TruvService
 
         Log::error('Truv API request failed', [
             'method' => strtoupper($method),
-            'uri' => $uri,
-            'status' => $response->status(),
-            'response' => $response->json() ?? $response->body(),
+            'url' => $url,
+            'status_code' => $response->status(),
+            'response_body' => $response->body(),
             'payload' => $payload,
         ]);
+    }
+
+    private function buildUrl(string $uri): string
+    {
+        return rtrim((string) config('truv.base_url'), '/').'/'.ltrim($uri, '/');
     }
 
     private function splitName(string $name): array

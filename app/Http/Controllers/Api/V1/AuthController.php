@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Kreait\Firebase\Exception\Auth\ExpiredIdToken;
 use Kreait\Firebase\Exception\Auth\FailedToVerifyToken;
 use RuntimeException;
@@ -26,8 +27,20 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'firebase_token' => ['required', 'string'],
+            // Backward compatibility for old clients that still send `name`.
             'name' => ['nullable', 'string', 'max:255'],
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
+            'email' => ['nullable', 'email', 'max:255'],
         ]);
+
+        // Normalize blank strings from clients to null so optional fields are safely ignored.
+        $profilePayload = [
+            'name' => $this->normalizeString($validated['name'] ?? null),
+            'first_name' => $this->normalizeString($validated['first_name'] ?? null),
+            'last_name' => $this->normalizeString($validated['last_name'] ?? null),
+            'email' => $this->normalizeString($validated['email'] ?? null),
+        ];
 
         try {
             $parsedToken = $this->firebaseService->parseToken(
@@ -50,15 +63,36 @@ class AuthController extends Controller
         }
 
         try {
-            $user = DB::transaction(function () use ($parsedToken, $validated): User {
+            $user = DB::transaction(function () use ($parsedToken, $profilePayload): User {
                 $user = User::query()
                     ->where('firebase_uid', $parsedToken['firebase_uid'])
                     ->lockForUpdate()
                     ->first();
 
+                if ($profilePayload['email'] !== null) {
+                    $emailOwner = User::query()
+                        ->where('email', $profilePayload['email'])
+                        ->when($user, fn ($query) => $query->where('id', '!=', $user->id))
+                        ->exists();
+
+                    if ($emailOwner) {
+                        throw ValidationException::withMessages([
+                            'email' => ['The email has already been taken.'],
+                        ]);
+                    }
+                }
+
                 if (! $user) {
+                    $composedName = $this->composeName(
+                        $profilePayload['first_name'],
+                        $profilePayload['last_name']
+                    );
+
                     $user = User::query()->create([
-                        'name' => $validated['name'] ?? null,
+                        'name' => $profilePayload['name'] ?? $composedName,
+                        'first_name' => $profilePayload['first_name'],
+                        'last_name' => $profilePayload['last_name'],
+                        'email' => $profilePayload['email'],
                         'phone' => $parsedToken['phone_number'],
                         'firebase_uid' => $parsedToken['firebase_uid'],
                         'role' => User::ROLE_RIDER,
@@ -66,10 +100,48 @@ class AuthController extends Controller
                     ]);
 
                     $user->userSetting()->create([]);
+
+                    return $user;
                 }
 
-                return $user;
+                // Auto-fill profile fields only when currently empty.
+                $updates = [];
+
+                if ($this->isNullOrEmpty($user->first_name) && $profilePayload['first_name'] !== null) {
+                    $updates['first_name'] = $profilePayload['first_name'];
+                }
+
+                if ($this->isNullOrEmpty($user->last_name) && $profilePayload['last_name'] !== null) {
+                    $updates['last_name'] = $profilePayload['last_name'];
+                }
+
+                if ($this->isNullOrEmpty($user->email) && $profilePayload['email'] !== null) {
+                    $updates['email'] = $profilePayload['email'];
+                }
+
+                if ($this->isNullOrEmpty($user->name)) {
+                    if ($profilePayload['name'] !== null) {
+                        $updates['name'] = $profilePayload['name'];
+                    } else {
+                        $composedName = $this->composeName(
+                            $updates['first_name'] ?? $user->first_name,
+                            $updates['last_name'] ?? $user->last_name
+                        );
+
+                        if ($composedName !== null) {
+                            $updates['name'] = $composedName;
+                        }
+                    }
+                }
+
+                if ($updates !== []) {
+                    $user->fill($updates)->save();
+                }
+
+                return $user->fresh();
             }, 3);
+        } catch (ValidationException $exception) {
+            throw $exception;
         } catch (Throwable $exception) {
             Log::error('Auth verify database flow failed', [
                 'exception' => $exception,
@@ -99,5 +171,28 @@ class AuthController extends Controller
         return $this->success('Role updated', [
             'user' => $user->fresh(),
         ]);
+    }
+
+    private function normalizeString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function isNullOrEmpty(mixed $value): bool
+    {
+        return ! is_string($value) || trim($value) === '';
+    }
+
+    private function composeName(?string $firstName, ?string $lastName): ?string
+    {
+        $name = trim(($firstName ?? '').' '.($lastName ?? ''));
+
+        return $name === '' ? null : $name;
     }
 }

@@ -92,13 +92,13 @@ class TruvService
 
     private function client(): PendingRequest
     {
-        return Http::baseUrl(rtrim((string) config('truv.base_url'), '/'))
-            ->acceptJson()
-            ->asJson()
-            ->withHeaders([
-                'X-Access-Client-ID' => (string) config('truv.client_id'),
-                'X-Access-Secret' => (string) config('truv.access_secret'),
-            ])
+        return Http::withHeaders([
+            'X-Access-Client-ID' => (string) config('truv.client_id'),
+            'X-Access-Secret' => (string) config('truv.access_secret'),
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ])
+            ->baseUrl(rtrim((string) config('truv.base_url'), '/'))
             ->timeout(30)
             ->retry(2, 500);
     }

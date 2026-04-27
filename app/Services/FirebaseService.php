@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Auth;
-use Kreait\Firebase\Auth\Token\VerifiedIdToken;
 use Kreait\Firebase\Factory;
 use RuntimeException;
 
@@ -41,7 +40,10 @@ class FirebaseService
             ->createAuth();
     }
 
-    public function verifyIdToken(string $idToken): VerifiedIdToken
+    /**
+     * @return mixed
+     */
+    public function verifyIdToken(string $idToken)
     {
         return $this->auth->verifyIdToken($idToken, true);
     }
@@ -49,9 +51,17 @@ class FirebaseService
     /**
      * @return array{firebase_uid: string, phone_number: ?string}
      */
-    public function parseToken(VerifiedIdToken $verifiedIdToken): array
+    public function parseToken($verifiedIdToken): array
     {
+        if (! is_object($verifiedIdToken) || ! method_exists($verifiedIdToken, 'claims')) {
+            throw new RuntimeException('Unable to parse Firebase token claims.');
+        }
+
         $claims = $verifiedIdToken->claims();
+
+        if (! is_object($claims) || ! method_exists($claims, 'get')) {
+            throw new RuntimeException('Unable to read Firebase token claims.');
+        }
 
         $uid = $claims->get('sub');
 
@@ -65,6 +75,11 @@ class FirebaseService
             'firebase_uid' => $uid,
             'phone_number' => is_string($phone) && $phone !== '' ? $phone : null,
         ];
+    }
+
+    public function extractUid($verifiedIdToken): string
+    {
+        return $this->parseToken($verifiedIdToken)['firebase_uid'];
     }
 
     private function isAbsolutePath(string $path): bool

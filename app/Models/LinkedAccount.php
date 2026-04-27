@@ -7,11 +7,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LinkedAccount extends Model
 {
+    public const PROVIDER_TRUV = 'truv';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_CONNECTED = 'connected';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_DISCONNECTED = 'disconnected';
+
     protected $fillable = [
         'user_id',
         'provider',
+        'external_user_id',
+        'link_id',
         'access_token',
         'refresh_token',
+        'status',
         'is_connected',
         'last_synced_at',
     ];

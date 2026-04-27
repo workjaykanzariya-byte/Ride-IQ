@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\DriverController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\RideComparisonController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\API\TruvController;
+use App\Http\Controllers\API\TruvWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
@@ -26,3 +28,16 @@ Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
         Route::post('/notifications/read', [NotificationController::class, 'markRead']);
     });
 });
+
+
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
+    Route::post('/truv/create-user', [TruvController::class, 'createUser']);
+    Route::post('/truv/bridge-token', [TruvController::class, 'bridgeToken']);
+    Route::post('/truv/exchange-token', [TruvController::class, 'exchangeToken']);
+    Route::get('/truv/profile', [TruvController::class, 'profile']);
+    Route::get('/truv/income', [TruvController::class, 'income']);
+    Route::post('/truv/refresh', [TruvController::class, 'refresh']);
+    Route::delete('/truv/disconnect', [TruvController::class, 'disconnect']);
+});
+
+Route::post('/webhooks/truv', [TruvWebhookController::class, 'handle'])->middleware('throttle:api');

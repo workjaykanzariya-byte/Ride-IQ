@@ -11,7 +11,14 @@ class DriverEarning extends Model
 
     protected $fillable = [
         'user_id',
+        'provider',
         'date',
+        'statement_date',
+        'gross_income',
+        'net_income',
+        'pay_frequency',
+        'currency',
+        'raw_json',
         'total_earnings',
         'total_trips',
         'total_hours',
@@ -21,6 +28,10 @@ class DriverEarning extends Model
     {
         return [
             'date' => 'date',
+            'statement_date' => 'date',
+            'gross_income' => 'decimal:2',
+            'net_income' => 'decimal:2',
+            'raw_json' => 'array',
         ];
     }
 

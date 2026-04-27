@@ -24,7 +24,9 @@ return [
     ],
 
     'firebase' => [
-        'credentials' => env('FIREBASE_CREDENTIALS', 'app/firebase/firebase_credentials.json'),
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+        'credentials' => env('FIREBASE_CREDENTIALS', ''),
+        'otp_debug' => (bool) env('OTP_DEBUG', false),
     ],
 
     'google' => [

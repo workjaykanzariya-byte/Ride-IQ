@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Auth;
 use Kreait\Firebase\Auth\Token\VerifiedIdToken;
 use Kreait\Firebase\Factory;
@@ -19,10 +20,20 @@ class FirebaseService
             throw new RuntimeException('Firebase credentials path is not configured.');
         }
 
-        $credentialsPath = storage_path($credentials);
+        $normalizedPath = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $credentials);
+        $credentialsPath = $this->isAbsolutePath($normalizedPath)
+            ? $normalizedPath
+            : base_path(ltrim($normalizedPath, DIRECTORY_SEPARATOR));
 
         if (! is_file($credentialsPath)) {
             throw new RuntimeException('Firebase credentials file not found at: '.$credentialsPath);
+        }
+
+        if ((bool) config('services.firebase.otp_debug')) {
+            Log::debug('Firebase credentials resolved.', [
+                'project_id' => config('services.firebase.project_id'),
+                'credentials_path' => $credentialsPath,
+            ]);
         }
 
         $this->auth = (new Factory())
@@ -54,5 +65,15 @@ class FirebaseService
             'firebase_uid' => $uid,
             'phone_number' => is_string($phone) && $phone !== '' ? $phone : null,
         ];
+    }
+
+    private function isAbsolutePath(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+
+        return str_starts_with($path, DIRECTORY_SEPARATOR)
+            || preg_match('/^[A-Za-z]:[\/\\\\]/', $path) === 1;
     }
 }

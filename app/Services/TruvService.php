@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
+use Illuminate\Support\Facades\Log;
 
 class TruvService
 {
@@ -61,32 +61,64 @@ class TruvService
 
     private function post(string $uri, array $payload): array
     {
-        return $this->request()->post($uri, $payload)->throw()->json() ?? [];
+        return $this->send('post', $uri, $payload);
     }
 
     private function get(string $uri): array
     {
-        return $this->request()->get($uri)->throw()->json() ?? [];
+        return $this->send('get', $uri);
     }
 
     private function delete(string $uri): array
     {
-        return $this->request()->delete($uri)->throw()->json() ?? [];
+        return $this->send('delete', $uri);
     }
 
-    private function request(): PendingRequest
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function send(string $method, string $uri, array $payload = []): array
+    {
+        $response = match ($method) {
+            'post' => $this->client()->post($uri, $payload),
+            'delete' => $this->client()->delete($uri),
+            default => $this->client()->get($uri),
+        };
+
+        $this->logIfFailed($response, $method, $uri, $payload);
+
+        return $response->throw()->json() ?? [];
+    }
+
+    private function client(): PendingRequest
     {
         return Http::baseUrl(rtrim((string) config('truv.base_url'), '/'))
             ->acceptJson()
             ->asJson()
             ->withHeaders([
-                'x-client-id' => (string) config('truv.client_id'),
-                'x-access-secret' => (string) config('truv.access_secret'),
+                'X-Access-Client-ID' => (string) config('truv.client_id'),
+                'X-Access-Secret' => (string) config('truv.access_secret'),
             ])
-            ->timeout((int) config('truv.timeout', 15))
-            ->retry((int) config('truv.retry_times', 2), (int) config('truv.retry_sleep_ms', 200), function (\Throwable $exception): bool {
-                return $exception instanceof RequestException;
-            });
+            ->timeout(30)
+            ->retry(2, 500);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function logIfFailed(Response $response, string $method, string $uri, array $payload = []): void
+    {
+        if (! $response->failed()) {
+            return;
+        }
+
+        Log::error('Truv API request failed', [
+            'method' => strtoupper($method),
+            'uri' => $uri,
+            'status' => $response->status(),
+            'response' => $response->json() ?? $response->body(),
+            'payload' => $payload,
+        ]);
     }
 
     private function splitName(string $name): array

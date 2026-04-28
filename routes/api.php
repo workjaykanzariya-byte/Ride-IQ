@@ -24,14 +24,15 @@ Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
         Route::get('/driver/earnings', [DriverController::class, 'earnings']);
 
 
-        Route::prefix('driver/truv')->group(function (): void {
-            Route::post('/create-token', [DriverTruvController::class, 'createToken']);
-            Route::post('/exchange-token', [DriverTruvController::class, 'exchangeToken']);
-            Route::get('/report', [DriverTruvController::class, 'report']);
-            Route::get('/status', [DriverTruvController::class, 'status']);
-        });
-
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::post('/notifications/read', [NotificationController::class, 'markRead']);
     });
+});
+
+
+Route::middleware(['throttle:api', 'auth:sanctum'])->prefix('driver/truv')->group(function (): void {
+    Route::post('/create-token', [DriverTruvController::class, 'createToken']);
+    Route::post('/exchange-token', [DriverTruvController::class, 'exchangeToken']);
+    Route::get('/report', [DriverTruvController::class, 'report']);
+    Route::get('/status', [DriverTruvController::class, 'status']);
 });

@@ -28,6 +28,11 @@ class TruvService
 
     public function exchangePublicToken(string $publicToken): array
     {
+        return $this->exchangeToken($publicToken);
+    }
+
+    public function exchangeToken(string $publicToken): array
+    {
         return $this->post('/link-access-tokens/', [
             'public_token' => $publicToken,
         ]);
@@ -45,7 +50,6 @@ class TruvService
             ->withHeaders([
                 'X-Access-Client-ID' => (string) config('services.truv.client_id'),
                 'X-Access-Secret' => (string) config('services.truv.access_secret'),
-                'Content-Type' => 'application/json',
             ])
             ->withToken($accessToken)
             ->get('/v1/profile');
@@ -53,9 +57,6 @@ class TruvService
         return $this->handleResponse($response);
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
     protected function post(string $endpoint, array $payload): array
     {
         return $this->request('post', $endpoint, $payload);
@@ -66,9 +67,6 @@ class TruvService
         return $this->request('get', $endpoint);
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
     protected function request(string $method, string $endpoint, array $payload = []): array
     {
         $response = Http::baseUrl((string) config('services.truv.base_url'))
@@ -76,7 +74,6 @@ class TruvService
             ->withHeaders([
                 'X-Access-Client-ID' => (string) config('services.truv.client_id'),
                 'X-Access-Secret' => (string) config('services.truv.access_secret'),
-                'Content-Type' => 'application/json',
             ])
             ->send(strtoupper($method), $endpoint, [
                 'json' => $payload,

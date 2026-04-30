@@ -28,6 +28,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'firebase_uid',
+        'truv_access_token',
         'role',
         'is_verified',
     ];

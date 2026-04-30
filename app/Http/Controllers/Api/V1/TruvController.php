@@ -4,13 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TruvAccountResource;
-use App\Models\DriverTruvAccount;
 use App\Models\TruvAccount;
 use App\Services\TruvService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -22,35 +21,66 @@ class TruvController extends Controller
     {
     }
 
-    public function fetchAndStoreAccounts(Request $request): JsonResponse
+    public function exchangeToken(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'public_token' => ['required', 'string'],
+            ]);
+
+            $response = $this->truvService->exchangeToken($validated['public_token']);
+            $accessToken = (string) data_get($response, 'access_token', '');
+
+            if ($accessToken === '') {
+                throw new RuntimeException('Invalid Truv token exchange response.');
+            }
+
+            $request->user()->update([
+                'truv_access_token' => encrypt($accessToken),
+            ]);
+
+            return $this->success('Truv access token stored successfully.');
+        } catch (ValidationException $exception) {
+            return $this->error('Validation failed.', $exception->errors(), 422);
+        } catch (RuntimeException $exception) {
+            Log::warning('Truv exchange token failed', [
+                'user_id' => $request->user()?->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return $this->error('Unable to exchange Truv token.', [
+                'detail' => $exception->getMessage(),
+            ], 422);
+        } catch (Throwable $exception) {
+            Log::error('Unexpected Truv exchange token failure', [
+                'user_id' => $request->user()?->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return $this->error('Failed to exchange Truv token.', null, 500);
+        }
+    }
+
+    public function fetchAccounts(Request $request): JsonResponse
     {
         $user = $request->user();
 
         try {
-            $driverTruvAccount = DriverTruvAccount::query()
-                ->where('user_id', $user->id)
-                ->first();
-
-            if (! $driverTruvAccount || empty($driverTruvAccount->access_token)) {
-                return $this->error('Truv access token is missing. Connect your Truv account first.', null, 422);
+            if (empty($user->truv_access_token)) {
+                return $this->error('Missing Truv access token. Exchange token first.', null, 422);
             }
 
-            $accessToken = Crypt::decryptString($driverTruvAccount->access_token);
-            $profile = $this->truvService->getProfile($accessToken);
+            $profile = $this->truvService->getProfile(decrypt($user->truv_access_token));
             $accounts = data_get($profile, 'accounts', []);
 
             if (! is_array($accounts) || $accounts === []) {
-                return $this->success('No Truv accounts found for this user.', [
+                return $this->success('No Truv accounts found.', [
                     'truv_accounts' => [],
                 ]);
             }
 
             foreach ($accounts as $account) {
-                if (! is_array($account)) {
-                    continue;
-                }
-
-                $truvAccountId = (string) (data_get($account, 'id') ?? data_get($account, 'account_id') ?? '');
+                $truvAccountId = (string) data_get($account, 'id', '');
 
                 if ($truvAccountId === '') {
                     continue;
@@ -69,13 +99,11 @@ class TruvController extends Controller
                 );
             }
 
-            $storedAccounts = $user->truvAccounts()->latest()->get();
-
-            return $this->success('Truv accounts fetched successfully.', [
-                'truv_accounts' => TruvAccountResource::collection($storedAccounts),
+            return $this->success('Truv accounts synced successfully.', [
+                'truv_accounts' => TruvAccountResource::collection($user->truvAccounts()->latest()->get()),
             ]);
         } catch (RuntimeException $exception) {
-            Log::error('Truv profile API request failed', [
+            Log::warning('Truv profile fetch failed', [
                 'user_id' => $user->id,
                 'error' => $exception->getMessage(),
             ]);

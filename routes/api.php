@@ -18,7 +18,9 @@ Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
 
         Route::get('/user/profile', [UserController::class, 'profile']);
         Route::post('/user/profile/update', [UserController::class, 'updateProfile']);
-        Route::get('/user/truv/accounts', [TruvController::class, 'fetchAndStoreAccounts']);
+        Route::post('/truv/exchange-token', [TruvController::class, 'exchangeToken']);
+        Route::get('/truv/accounts', [TruvController::class, 'fetchAccounts']);
+        Route::get('/user/truv/accounts', [TruvController::class, 'fetchAccounts']);
 
         Route::post('/rides/compare', [RideComparisonController::class, 'compare']);
 

@@ -24,11 +24,19 @@ class DriverTruvController extends Controller
     public function createToken(Request $request): JsonResponse
     {
         try {
+            $validated = $request->validate([
+                'company_mapping_id' => ['nullable', 'string', 'prohibited_with:provider_id'],
+                'provider_id' => ['nullable', 'string', 'prohibited_with:company_mapping_id'],
+            ]);
+
             $user = $request->user();
             $driverTruvAccount = DriverTruvAccount::query()->firstOrCreate(
                 ['user_id' => $user->id],
                 ['verification_status' => 'pending']
             );
+
+            $companyMappingId = $user->company_mapping_id ?: ($validated['company_mapping_id'] ?? null);
+            $providerId = $user->provider_id ?: ($validated['provider_id'] ?? null);
 
             if (empty($driverTruvAccount->truv_user_id)) {
                 $createUserResponse = $this->truvService->createUser($user);
@@ -43,7 +51,16 @@ class DriverTruvController extends Controller
             $bridgeTokenResponse = $this->truvService->createBridgeToken(
                 $driverTruvAccount->truv_user_id,
                 $user->id,
+                $companyMappingId,
+                $providerId,
             );
+
+            if (($companyMappingId && ! $user->company_mapping_id) || ($providerId && ! $user->provider_id)) {
+                $user->forceFill([
+                    'company_mapping_id' => $companyMappingId,
+                    'provider_id' => $providerId,
+                ])->save();
+            }
 
             $bridgeToken = (string) ($bridgeTokenResponse['bridge_token']
                 ?? $bridgeTokenResponse['token']
@@ -62,6 +79,8 @@ class DriverTruvController extends Controller
                 'bridge_token' => $bridgeToken,
                 'truv_user_id' => $driverTruvAccount->truv_user_id,
             ]);
+        } catch (ValidationException $exception) {
+            return $this->error('Validation failed', $exception->errors(), 422);
         } catch (Throwable $exception) {
             Log::error('Truv create token request failed', [
                 'user_id' => $request->user()?->id,

@@ -30,6 +30,8 @@ class User extends Authenticatable
         'firebase_uid',
         'role',
         'is_verified',
+        'company_mapping_id',
+        'provider_id',
     ];
 
     /**

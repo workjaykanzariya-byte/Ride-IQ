@@ -18,12 +18,27 @@ class TruvService
         ]);
     }
 
-    public function createBridgeToken(string $truvUserId, int $authUserId): array
+    public function createBridgeToken(
+        string $truvUserId,
+        int $authUserId,
+        ?string $companyMappingId = null,
+        ?string $providerId = null
+    ): array
     {
-        return $this->post("/users/{$truvUserId}/tokens/", [
+        $payload = [
             'product_type' => 'income',
             'tracking_info' => 'driver-'.$authUserId,
-        ]);
+        ];
+
+        if ($companyMappingId) {
+            $payload['company_mapping_id'] = $companyMappingId;
+        }
+
+        if ($providerId) {
+            $payload['provider_id'] = $providerId;
+        }
+
+        return $this->post("/users/{$truvUserId}/tokens/", $payload);
     }
 
     public function exchangePublicToken(string $publicToken): array
@@ -36,6 +51,11 @@ class TruvService
     public function getIncomeReport(string $linkId): array
     {
         return $this->get("/links/{$linkId}/income/report");
+    }
+
+    public function searchCompanies(string $companyName): array
+    {
+        return $this->get('/companies/search?query='.urlencode($companyName));
     }
 
     /**

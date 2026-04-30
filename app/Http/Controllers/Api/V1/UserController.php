@@ -32,9 +32,13 @@ class UserController extends Controller
             ],
         ]);
 
-        $name = trim(($validated['first_name'] ?? '').' '.($validated['last_name'] ?? ''));
+        $firstName = $validated['first_name'];
+        $lastName = $validated['last_name'] ?? null;
+        $name = trim($firstName.' '.($lastName ?? ''));
 
         $user->update([
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'name' => $name,
             'email' => $validated['email'] ?? null,
         ]);

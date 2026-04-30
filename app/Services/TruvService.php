@@ -38,6 +38,21 @@ class TruvService
         return $this->get("/links/{$linkId}/income/report");
     }
 
+    public function getProfile(string $accessToken): array
+    {
+        $response = Http::baseUrl((string) config('services.truv.base_url'))
+            ->acceptJson()
+            ->withHeaders([
+                'X-Access-Client-ID' => (string) config('services.truv.client_id'),
+                'X-Access-Secret' => (string) config('services.truv.access_secret'),
+                'Content-Type' => 'application/json',
+            ])
+            ->withToken($accessToken)
+            ->get('/v1/profile');
+
+        return $this->handleResponse($response);
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      */

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\DriverController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\RideComparisonController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\TruvController;
 use App\Http\Controllers\API\DriverEarningsController;
 use App\Http\Controllers\API\DriverTruvController;
 use Illuminate\Support\Facades\Route;
@@ -17,6 +18,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
 
         Route::get('/user/profile', [UserController::class, 'profile']);
         Route::post('/user/profile/update', [UserController::class, 'updateProfile']);
+        Route::get('/user/truv/accounts', [TruvController::class, 'fetchAndStoreAccounts']);
 
         Route::post('/rides/compare', [RideComparisonController::class, 'compare']);
 

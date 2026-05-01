@@ -26,8 +26,8 @@ class DriverTruvController extends Controller
     {
         try {
             $validated = $request->validate([
-                'company_mapping_id' => ['nullable', 'string', 'required_without:provider_id'],
-                'provider_id' => ['nullable', 'string', 'required_without:company_mapping_id'],
+                'company_mapping_id' => ['nullable', 'string'],
+                'provider_id' => ['nullable', 'string'],
             ]);
 
             if (! empty($validated['company_mapping_id']) && ! empty($validated['provider_id'])) {
@@ -46,10 +46,9 @@ class DriverTruvController extends Controller
                 ]);
 
                 return response()->json([
-                    'success' => false,
+                    'status' => false,
                     'message' => 'Truv configuration missing',
-                    'data' => null,
-                ], 500);
+                ], 422);
             }
 
             $user = $request->user();
@@ -92,7 +91,7 @@ class DriverTruvController extends Controller
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
             ])->post(
-                'https://prod.truv.com/v1/users/'.$driverTruvAccount->truv_user_id.'/tokens',
+                rtrim($truvConfig['base_url'], '/').'/users/'.$driverTruvAccount->truv_user_id.'/tokens',
                 $payload
             );
 
@@ -104,16 +103,15 @@ class DriverTruvController extends Controller
 
             if (! $response->successful()) {
                 return response()->json([
-                    'success' => false,
+                    'status' => false,
                     'message' => $response->json('message') ?? 'Unable to create bridge token',
-                    'data' => $response->json() ?? ['raw' => $response->body()],
+                    'error' => $response->json() ?? ['raw' => $response->body()],
                 ], $response->status());
             }
 
             return response()->json([
-                'success' => true,
-                'message' => 'Bridge token created successfully',
-                'data' => $response->json(),
+                'status' => true,
+                'bridge_token' => (string) ($response->json('bridge_token') ?? $response->json('token') ?? ''),
             ], 200);
         } catch (ValidationException $exception) {
             return response()->json([
@@ -128,9 +126,8 @@ class DriverTruvController extends Controller
             ]);
 
             return response()->json([
-                'success' => false,
+                'status' => false,
                 'message' => 'Unable to create bridge token',
-                'data' => null,
             ], 422);
         }
     }
@@ -153,7 +150,7 @@ class DriverTruvController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Truv configuration missing',
-                ], 500);
+                ], 422);
             }
             $headers = $this->truvHeaders($truvConfig);
 

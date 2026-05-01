@@ -54,9 +54,9 @@ return [
 
 
     'truv' => [
+        'base_url' => env('TRUV_BASE_URL', 'https://prod.truv.com/v1'),
         'client_id' => env('TRUV_CLIENT_ID'),
         'secret' => env('TRUV_SECRET'),
-        'base_url' => env('TRUV_BASE_URL', 'https://sandbox.truv.com'),
     ],
 
     'location' => [

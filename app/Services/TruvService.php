@@ -60,10 +60,10 @@ class TruvService
             ->acceptJson()
             ->withHeaders([
                 'X-Access-Client-ID' => (string) config('services.truv.client_id'),
-                'X-Access-Secret' => (string) config('services.truv.access_secret'),
+                'X-Access-Secret' => (string) config('services.truv.secret'),
                 'Content-Type' => 'application/json',
             ])
-            ->send(strtoupper($method), $endpoint, [
+            ->send(strtoupper($method), '/v1'.$endpoint, [
                 'json' => $payload,
             ]);
 

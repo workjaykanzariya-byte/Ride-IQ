@@ -36,6 +36,12 @@ class DriverTruvController extends Controller
 
             $truvConfig = $this->resolveTruvConfig();
             if (empty($truvConfig['client_id']) || empty($truvConfig['secret'])) {
+                Log::error('Truv config missing', [
+                    'client_id' => $truvConfig['client_id'],
+                    'secret' => $truvConfig['secret'],
+                    'base_url' => $truvConfig['base_url'],
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Truv configuration missing',
@@ -74,6 +80,12 @@ class DriverTruvController extends Controller
 
             $truvConfig = $this->resolveTruvConfig();
             if (empty($truvConfig['client_id']) || empty($truvConfig['secret'])) {
+                Log::error('Truv config missing', [
+                    'client_id' => $truvConfig['client_id'],
+                    'secret' => $truvConfig['secret'],
+                    'base_url' => $truvConfig['base_url'],
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Truv configuration missing',
@@ -134,9 +146,9 @@ class DriverTruvController extends Controller
 
     private function resolveTruvConfig(): array
     {
-        $clientId = (string) config('services.truv.client_id');
-        $secret = (string) config('services.truv.secret');
-        $baseUrl = (string) config('services.truv.base_url', 'https://sandbox.truv.com');
+        $clientId = (string) (config('services.truv.client_id') ?? env('TRUV_CLIENT_ID'));
+        $secret = (string) (config('services.truv.secret') ?? env('TRUV_SECRET'));
+        $baseUrl = (string) (config('services.truv.base_url') ?? env('TRUV_BASE_URL', 'https://sandbox.truv.com'));
 
         if (str_starts_with($secret, 'sandbox-') && ! str_contains($baseUrl, 'sandbox.truv.com')) {
             $baseUrl = 'https://sandbox.truv.com';

@@ -67,3 +67,7 @@ Route::get('/test-truv', function () {
     ], $response->status());
 });
 
+
+Route::get('/debug-truv-config', function () {
+    return response()->json(config('services.truv'));
+});

@@ -26,12 +26,16 @@ class DriverTruvController extends Controller
     {
         try {
             $validated = $request->validate([
-                'company_mapping_id' => ['nullable', 'string'],
+                'company_mapping_id' => ['nullable', 'string', 'required_without:provider_id'],
+                'provider_id' => ['nullable', 'string', 'required_without:company_mapping_id'],
             ]);
 
-            $payload = ['product_type' => 'employment'];
-            if (! empty($validated['company_mapping_id'])) {
-                $payload['company_mapping_id'] = $validated['company_mapping_id'];
+            if (! empty($validated['company_mapping_id']) && ! empty($validated['provider_id'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only one of company_mapping_id or provider_id can be provided',
+                    'data' => null,
+                ], 422);
             }
 
             $truvConfig = $this->resolveTruvConfig();
@@ -39,22 +43,70 @@ class DriverTruvController extends Controller
                 Log::error('Truv config missing', [
                     'client_id' => $truvConfig['client_id'],
                     'secret' => $truvConfig['secret'],
-                    'base_url' => $truvConfig['base_url'],
                 ]);
 
                 return response()->json([
                     'success' => false,
                     'message' => 'Truv configuration missing',
+                    'data' => null,
                 ], 500);
             }
-            $response = Http::withHeaders($this->truvHeaders($truvConfig))
-                ->post(rtrim($truvConfig['base_url'], '/').'/v1/bridge-tokens', $payload);
+
+            $user = $request->user();
+            $driverTruvAccount = DriverTruvAccount::query()->firstOrCreate(
+                ['user_id' => $user->id],
+                ['verification_status' => 'pending']
+            );
+
+            if (empty($driverTruvAccount->truv_user_id)) {
+                $createUserResponse = $this->truvService->createUser($user);
+                $driverTruvAccount->truv_user_id = (string) ($createUserResponse['id'] ?? '');
+                $driverTruvAccount->save();
+            }
+
+            if (empty($driverTruvAccount->truv_user_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to create Truv user',
+                    'data' => null,
+                ], 422);
+            }
+
+            $payload = ['product_type' => 'income'];
+            if (! empty($validated['company_mapping_id'])) {
+                $payload['company_mapping_id'] = $validated['company_mapping_id'];
+            }
+            if (! empty($validated['provider_id'])) {
+                $payload['provider_id'] = $validated['provider_id'];
+            }
+
+            Log::info('Truv create token request payload', [
+                'user_id' => $user->id,
+                'truv_user_id' => $driverTruvAccount->truv_user_id,
+                'payload' => $payload,
+            ]);
+
+            $response = Http::withHeaders([
+                'X-Access-Client-Id' => $truvConfig['client_id'],
+                'X-Access-Secret' => $truvConfig['secret'],
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->post(
+                'https://prod.truv.com/v1/users/'.$driverTruvAccount->truv_user_id.'/tokens',
+                $payload
+            );
+
+            Log::info('Truv create token response', [
+                'user_id' => $user->id,
+                'status' => $response->status(),
+                'body' => $response->json() ?? $response->body(),
+            ]);
 
             if (! $response->successful()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unable to create bridge token',
-                    'data' => $response->json(),
+                    'message' => $response->json('message') ?? 'Unable to create bridge token',
+                    'data' => $response->json() ?? ['raw' => $response->body()],
                 ], $response->status());
             }
 
@@ -62,12 +114,24 @@ class DriverTruvController extends Controller
                 'success' => true,
                 'message' => 'Bridge token created successfully',
                 'data' => $response->json(),
-            ]);
+            ], 200);
         } catch (ValidationException $exception) {
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'data' => $exception->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'data' => $exception->errors(),
+            ], 422);
         } catch (Throwable $exception) {
-            Log::error('Truv create token request failed', ['user_id' => $request->user()?->id, 'error' => $exception->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Unable to create bridge token', 'data' => null], 422);
+            Log::error('Truv create token request failed', [
+                'user_id' => $request->user()?->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to create bridge token',
+                'data' => null,
+            ], 422);
         }
     }
 
@@ -146,9 +210,9 @@ class DriverTruvController extends Controller
 
     private function resolveTruvConfig(): array
     {
-        $clientId = (string) (config('services.truv.client_id') ?? env('TRUV_CLIENT_ID'));
-        $secret = (string) (config('services.truv.secret') ?? env('TRUV_SECRET'));
-        $baseUrl = (string) (config('services.truv.base_url') ?? env('TRUV_BASE_URL', 'https://sandbox.truv.com'));
+        $clientId = (string) config('services.truv.client_id');
+        $secret = (string) config('services.truv.secret');
+        $baseUrl = (string) config('services.truv.base_url', 'https://sandbox.truv.com');
 
         if (str_starts_with($secret, 'sandbox-') && ! str_contains($baseUrl, 'sandbox.truv.com')) {
             $baseUrl = 'https://sandbox.truv.com';

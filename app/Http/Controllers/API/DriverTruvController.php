@@ -6,9 +6,11 @@ use App\Http\Controllers\Api\V1\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\DriverTruvAccount;
 use App\Services\TruvService;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -24,6 +26,10 @@ class DriverTruvController extends Controller
     public function createToken(Request $request): JsonResponse
     {
         try {
+            $validated = $request->validate([
+                'company_mapping_id' => ['nullable', 'string'],
+            ]);
+
             $user = $request->user();
             $driverTruvAccount = DriverTruvAccount::query()->firstOrCreate(
                 ['user_id' => $user->id],
@@ -40,10 +46,19 @@ class DriverTruvController extends Controller
                 throw new \RuntimeException('Unable to create Truv user');
             }
 
-            $bridgeTokenResponse = $this->truvService->createBridgeToken(
-                $driverTruvAccount->truv_user_id,
-                $user->id,
-            );
+            $payload = [
+                'product_type' => 'employment',
+            ];
+
+            if (! empty($validated['company_mapping_id'])) {
+                $payload['company_mapping_id'] = $validated['company_mapping_id'];
+            }
+
+            $bridgeTokenResponse = Http::withHeaders([
+                'X-Access-Client-Id' => (string) env('TRUV_CLIENT_ID'),
+                'X-Access-Secret' => (string) env('TRUV_SECRET'),
+                'Accept' => 'application/json',
+            ])->post('https://prod.truv.com/v1/bridge-tokens', $payload)->throw()->json();
 
             $bridgeToken = (string) ($bridgeTokenResponse['bridge_token']
                 ?? $bridgeTokenResponse['token']
@@ -62,6 +77,21 @@ class DriverTruvController extends Controller
                 'bridge_token' => $bridgeToken,
                 'truv_user_id' => $driverTruvAccount->truv_user_id,
             ]);
+        } catch (ValidationException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'data' => $exception->errors(),
+            ], 422);
+        } catch (RequestException $exception) {
+            $status = $exception->response?->status() ?? 422;
+            $errorData = $exception->response?->json();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to create bridge token',
+                'data' => $errorData,
+            ], $status);
         } catch (Throwable $exception) {
             Log::error('Truv create token request failed', [
                 'user_id' => $request->user()?->id,
@@ -69,6 +99,66 @@ class DriverTruvController extends Controller
             ]);
 
             return $this->error('Unable to create bridge token', null, 422);
+        }
+    }
+
+    public function searchCompany(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'query' => ['required', 'string'],
+            ]);
+
+            $response = Http::withHeaders([
+                'X-Access-Client-Id' => (string) env('TRUV_CLIENT_ID'),
+                'X-Access-Secret' => (string) env('TRUV_SECRET'),
+                'Accept' => 'application/json',
+            ])->get('https://prod.truv.com/v1/company-mappings-search/', [
+                'query' => $validated['query'],
+            ])->throw()->json();
+
+            $companies = collect($response['items'] ?? $response['results'] ?? $response)
+                ->filter(fn ($item) => is_array($item))
+                ->map(fn (array $item) => [
+                    'company_mapping_id' => $item['company_mapping_id'] ?? $item['id'] ?? null,
+                    'name' => $item['name'] ?? null,
+                    'domain' => $item['domain'] ?? null,
+                    'logo_url' => $item['logo_url'] ?? null,
+                ])
+                ->values()
+                ->all();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Companies fetched successfully',
+                'data' => $companies,
+            ]);
+        } catch (ValidationException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'data' => $exception->errors(),
+            ], 422);
+        } catch (RequestException $exception) {
+            $status = $exception->response?->status() ?? 422;
+            $errorData = $exception->response?->json();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to search company',
+                'data' => $errorData,
+            ], $status);
+        } catch (Throwable $exception) {
+            Log::error('Truv company search failed', [
+                'user_id' => $request->user()?->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to search company',
+                'data' => null,
+            ], 422);
         }
     }
 

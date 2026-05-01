@@ -32,6 +32,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
 
 
 Route::middleware(['throttle:api', 'auth:sanctum'])->prefix('driver/truv')->group(function (): void {
+    Route::get('/search-company', [DriverTruvController::class, 'searchCompany']);
     Route::post('/create-token', [DriverTruvController::class, 'createToken']);
     Route::post('/exchange-token', [DriverTruvController::class, 'exchangeToken']);
     Route::get('/report', [DriverTruvController::class, 'report']);

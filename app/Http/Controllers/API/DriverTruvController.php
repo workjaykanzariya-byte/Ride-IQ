@@ -79,26 +79,21 @@ class DriverTruvController extends Controller
                 $payload['provider_id'] = $validated['provider_id'];
             }
 
-            Log::info('Truv create token request payload', [
-                'user_id' => $user->id,
-                'truv_user_id' => $driverTruvAccount->truv_user_id,
-                'payload' => $payload,
-            ]);
+            $url = rtrim($truvConfig['base_url'], '/').'/users/'.$driverTruvAccount->truv_user_id.'/tokens';
+
+            Log::info('Truv Final URL', ['url' => $url]);
+            Log::info('Truv Payload', $payload);
 
             $response = Http::withHeaders([
                 'X-Access-Client-Id' => $truvConfig['client_id'],
                 'X-Access-Secret' => $truvConfig['secret'],
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-            ])->post(
-                rtrim($truvConfig['base_url'], '/').'/users/'.$driverTruvAccount->truv_user_id.'/tokens',
-                $payload
-            );
+            ])->post($url, $payload);
 
-            Log::info('Truv create token response', [
-                'user_id' => $user->id,
+            Log::info('Truv Response', [
                 'status' => $response->status(),
-                'body' => $response->json() ?? $response->body(),
+                'body' => $response->body(),
             ]);
 
             if (! $response->successful()) {
@@ -209,11 +204,7 @@ class DriverTruvController extends Controller
     {
         $clientId = (string) config('services.truv.client_id');
         $secret = (string) config('services.truv.secret');
-        $baseUrl = (string) config('services.truv.base_url', 'https://sandbox.truv.com');
-
-        if (str_starts_with($secret, 'sandbox-') && ! str_contains($baseUrl, 'sandbox.truv.com')) {
-            $baseUrl = 'https://sandbox.truv.com';
-        }
+        $baseUrl = (string) config('services.truv.base_url', 'https://prod.truv.com/v1');
 
         return [
             'client_id' => $clientId,

@@ -32,6 +32,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
 
 
 Route::middleware(['throttle:api', 'auth:sanctum'])->prefix('driver/truv')->group(function (): void {
+    Route::get('/search-company', [DriverTruvController::class, 'searchCompany']);
     Route::post('/create-token', [DriverTruvController::class, 'createToken']);
     Route::post('/exchange-token', [DriverTruvController::class, 'exchangeToken']);
     Route::get('/report', [DriverTruvController::class, 'report']);
@@ -42,4 +43,31 @@ Route::middleware(['throttle:api', 'auth:sanctum'])->group(function (): void {
     Route::get('/driver/earnings/summary', [DriverEarningsController::class, 'summary']);
     Route::get('/driver/earnings/platforms', [DriverEarningsController::class, 'platforms']);
     Route::post('/driver/earnings/refresh', [DriverEarningsController::class, 'refresh']);
+});
+
+
+Route::get('/test-truv', function () {
+    $clientId = (string) config('services.truv.client_id');
+    $secret = (string) config('services.truv.secret');
+    $baseUrl = (string) config('services.truv.base_url', 'https://sandbox.truv.com');
+
+    if (str_starts_with($secret, 'sandbox-') && ! str_contains($baseUrl, 'sandbox.truv.com')) {
+        $baseUrl = 'https://sandbox.truv.com';
+    }
+
+    $response = \Illuminate\Support\Facades\Http::withHeaders([
+        'X-Access-Client-Id' => $clientId,
+        'X-Access-Secret' => $secret,
+        'Accept' => 'application/json',
+    ])->get(rtrim($baseUrl, '/').'/v1/company-mappings-search', ['query' => 'amazon']);
+
+    return response()->json([
+        'status' => $response->status(),
+        'body' => $response->json() ?? $response->body(),
+    ], $response->status());
+});
+
+
+Route::get('/debug-truv-config', function () {
+    return response()->json(config('services.truv'));
 });

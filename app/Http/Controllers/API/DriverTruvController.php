@@ -35,6 +35,12 @@ class DriverTruvController extends Controller
             }
 
             $truvConfig = $this->resolveTruvConfig();
+            if (empty($truvConfig['client_id']) || empty($truvConfig['secret'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Truv configuration missing',
+                ], 500);
+            }
             $response = Http::withHeaders($this->truvHeaders($truvConfig))
                 ->post(rtrim($truvConfig['base_url'], '/').'/v1/bridge-tokens', $payload);
 
@@ -67,9 +73,15 @@ class DriverTruvController extends Controller
             ]);
 
             $truvConfig = $this->resolveTruvConfig();
+            if (empty($truvConfig['client_id']) || empty($truvConfig['secret'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Truv configuration missing',
+                ], 500);
+            }
             $headers = $this->truvHeaders($truvConfig);
 
-            Log::info('Truv company search config', [
+            Log::info('Truv Config', [
                 'client_id' => $truvConfig['client_id'],
                 'secret' => $this->maskSecret($truvConfig['secret']),
                 'base_url' => $truvConfig['base_url'],
@@ -130,13 +142,17 @@ class DriverTruvController extends Controller
             $baseUrl = 'https://sandbox.truv.com';
         }
 
-        return compact('clientId', 'secret', 'baseUrl');
+        return [
+            'client_id' => $clientId,
+            'secret' => $secret,
+            'base_url' => $baseUrl,
+        ];
     }
 
     private function truvHeaders(array $truvConfig): array
     {
         return [
-            'X-Access-Client-Id' => $truvConfig['clientId'],
+            'X-Access-Client-Id' => $truvConfig['client_id'],
             'X-Access-Secret' => $truvConfig['secret'],
             'Accept' => 'application/json',
         ];

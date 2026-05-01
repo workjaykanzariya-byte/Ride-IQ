@@ -140,20 +140,15 @@
     };
 
     const launchBridge = async (bridgeToken) => {
-        if (!window.TruvBridge || typeof window.TruvBridge.init !== 'function') {
+        if (!window.TruvBridge) {
             throw new Error('TruvBridge SDK is not loaded.');
         }
 
-        const bridge = window.TruvBridge.init({
-            bridgeToken,
-            onLoad() {
-                log('Truv Bridge callback: onLoad');
-            },
-            onEvent(eventType, payload) {
-                log('Truv Bridge callback: onEvent', { eventType, payload });
-            },
-            async onSuccess(publicToken, metadata) {
-                log('Truv Bridge callback: onSuccess', { public_token: publicToken, metadata });
+        const bridgeConfig = {
+            bridge_token: bridgeToken,
+            onSuccess: async (publicToken) => {
+                log('Truv Bridge callback: onSuccess', { public_token: publicToken });
+                console.log('Success:', publicToken);
 
                 try {
                     const exchangeResponse = await request('/api/driver/truv/exchange-token', {
@@ -167,15 +162,39 @@
                     log('Exchange/status/report flow failed', { error: error.message });
                 }
             },
-            onClose() {
-                log('Truv Bridge callback: onClose');
-            },
-            onError(error) {
+            onError: (error) => {
                 log('Truv Bridge callback: onError', error);
+                console.error('Error:', error);
+            },
+            onClose: () => {
+                log('Truv Bridge callback: onClose');
+                console.log('Closed');
             }
-        });
+        };
 
-        bridge.open();
+        if (typeof window.TruvBridge.open === 'function') {
+            window.TruvBridge.open(bridgeConfig);
+            return;
+        }
+
+        if (typeof window.TruvBridge.init === 'function') {
+            const bridge = window.TruvBridge.init({
+                bridgeToken: bridgeToken,
+                onSuccess: bridgeConfig.onSuccess,
+                onError: bridgeConfig.onError,
+                onClose: bridgeConfig.onClose,
+                onLoad() {
+                    log('Truv Bridge callback: onLoad');
+                },
+                onEvent(eventType, payload) {
+                    log('Truv Bridge callback: onEvent', { eventType, payload });
+                }
+            });
+            bridge.open();
+            return;
+        }
+
+        throw new Error('TruvBridge open/init method is unavailable.');
     };
 
     connectBtn.addEventListener('click', async () => {
@@ -185,12 +204,18 @@
         try {
             log('POST /api/driver/truv/create-token started');
             const createTokenResponse = await request('/api/driver/truv/create-token', {
-                method: 'POST'
+                method: 'POST',
+                body: JSON.stringify({
+                    company_mapping_id: '3d2d4abeee6545b6aa75e277a3e827f7'
+                })
             });
 
             log('POST /api/driver/truv/create-token response', createTokenResponse);
+            console.log('API Response:', createTokenResponse);
 
-            const bridgeToken = createTokenResponse?.data?.bridge_token;
+            const bridgeToken = createTokenResponse?.bridge_token;
+            console.log('Bridge Token:', bridgeToken);
+
             if (!bridgeToken) {
                 throw new Error('bridge_token was not returned by backend.');
             }

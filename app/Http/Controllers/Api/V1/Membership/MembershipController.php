@@ -2,32 +2,52 @@
 
 namespace App\Http\Controllers\Api\V1\Membership;
 
-use App\Http\Controllers\Api\V1\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\MembershipPlan;
-use App\Models\PaymentTransaction;
 use App\Models\UserSubscription;
 use App\Services\ZohoBillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class MembershipController extends Controller
 {
-    use ApiResponse;
-
     public function __construct(private ZohoBillingService $zoho) {}
 
-    public function plans(): JsonResponse { if (!MembershipPlan::exists()) { $this->zoho->syncPlansFromZoho(); } return response()->json(['success'=>true,'message'=>'Plans fetched','data'=>['plans'=>MembershipPlan::where('status','active')->get()]]); }
-    public function syncPlans(): JsonResponse { $count = $this->zoho->syncPlansFromZoho(); return response()->json(['success'=>true,'message'=>'Plans synced','data'=>['count'=>$count]]); }
+    public function plans(): JsonResponse
+    {
+        try {
+            if (! MembershipPlan::exists()) {
+                $this->zoho->syncPlansFromZoho();
+            }
+
+            return response()->json(['success' => true, 'message' => 'Plans fetched', 'data' => ['plans' => MembershipPlan::where('status', 'active')->get()]]);
+        } catch (\Throwable $exception) {
+            Log::error('Membership plans fetch failed', ['message' => $exception->getMessage(), 'trace' => $exception->getTraceAsString()]);
+
+            return response()->json(['success' => false, 'message' => $exception->getMessage(), 'errors' => []], 500);
+        }
+    }
+
+    public function syncPlans(): JsonResponse
+    {
+        try {
+            $count = $this->zoho->syncPlansFromZoho();
+
+            return response()->json(['success' => true, 'message' => 'Plans synced', 'data' => ['count' => $count]]);
+        } catch (\Throwable $exception) {
+            Log::error('Membership plans sync failed', ['message' => $exception->getMessage(), 'trace' => $exception->getTraceAsString()]);
+
+            return response()->json(['success' => false, 'message' => $exception->getMessage(), 'errors' => []], 500);
+        }
+    }
 
     public function checkout(Request $request): JsonResponse
     {
-        $validated = $request->validate(['plan_code' => ['required','string']]);
+        $validated = $request->validate(['plan_code' => ['required', 'string']]);
         $user = $request->user();
-        $plan = MembershipPlan::where('zoho_plan_code', $validated['plan_code'])->where('status','active')->first();
+        $plan = MembershipPlan::where('zoho_plan_code', $validated['plan_code'])->where('status', 'active')->first();
         if (! $plan) return response()->json(['success'=>false,'message'=>'Invalid plan code','errors'=>['plan_code']],422);
         if ($user->hasActiveMembership()) return response()->json(['success'=>false,'message'=>'User already has active subscription','errors'=>[]],422);
 

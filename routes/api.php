@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\V1\RideComparisonController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\API\DriverEarningsController;
 use App\Http\Controllers\API\DriverTruvController;
+use App\Http\Controllers\Api\V1\Membership\MembershipController;
+use App\Http\Controllers\Api\V1\Membership\ZohoWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:api')->group(function (): void {
@@ -72,8 +74,6 @@ Route::get('/debug-truv-config', function () {
     return response()->json(config('services.truv'));
 });
 
-use App\Http\Controllers\Api\V1\Membership\MembershipController;
-use App\Http\Controllers\Api\V1\Membership\ZohoWebhookController;
 
 Route::prefix('v1/membership')->middleware(['throttle:api', 'auth:sanctum'])->group(function (): void {
     Route::get('/plans', [MembershipController::class, 'plans']);

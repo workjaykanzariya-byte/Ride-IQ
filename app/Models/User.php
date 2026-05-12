@@ -76,4 +76,35 @@ class User extends Authenticatable
     {
         return $this->hasOne(UserSetting::class);
     }
+
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(UserSubscription::class);
+    }
+
+    public function activeSubscription(): ?UserSubscription
+    {
+        return $this->subscriptions()->where('status', 'active')->where(function ($q): void {
+            $q->whereNull('end_date')->orWhere('end_date', '>', now());
+        })->latest()->first();
+    }
+
+    public function hasActiveMembership(): bool
+    {
+        return $this->activeSubscription() !== null;
+    }
+
+    public function membershipExpired(): bool
+    {
+        $latest = $this->latestSubscription();
+
+        return $latest !== null && $latest->end_date !== null && $latest->end_date->isPast();
+    }
+
+    public function latestSubscription(): ?UserSubscription
+    {
+        return $this->subscriptions()->latest()->first();
+    }
+
 }

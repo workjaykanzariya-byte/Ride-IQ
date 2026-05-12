@@ -71,3 +71,17 @@ Route::get('/test-truv', function () {
 Route::get('/debug-truv-config', function () {
     return response()->json(config('services.truv'));
 });
+
+use App\Http\Controllers\Api\V1\Membership\MembershipController;
+use App\Http\Controllers\Api\V1\Membership\ZohoWebhookController;
+
+Route::prefix('v1/membership')->middleware(['throttle:api', 'auth:sanctum'])->group(function (): void {
+    Route::get('/plans', [MembershipController::class, 'plans']);
+    Route::post('/plans/sync', [MembershipController::class, 'syncPlans']);
+    Route::post('/checkout', [MembershipController::class, 'checkout']);
+    Route::get('/status', [MembershipController::class, 'status']);
+    Route::get('/history', [MembershipController::class, 'history']);
+    Route::post('/cancel', [MembershipController::class, 'cancel']);
+});
+
+Route::post('/v1/webhooks/zoho-billing', [ZohoWebhookController::class, 'handle'])->middleware('throttle:api');

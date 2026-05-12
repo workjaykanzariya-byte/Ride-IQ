@@ -1,6 +1,8 @@
 <?php
 
 use App\Console\Commands\SyncDriverData;
+use App\Console\Commands\SyncMembershipPlans;
+use App\Console\Commands\SyncMembershipStatuses;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
@@ -14,6 +16,8 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         SyncDriverData::class,
+        SyncMembershipPlans::class,
+        SyncMembershipStatuses::class,
     ])
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -22,7 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            "active.membership" => \App\Http\Middleware\EnsureUserHasActiveMembership::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (\Throwable $exception, Request $request) {

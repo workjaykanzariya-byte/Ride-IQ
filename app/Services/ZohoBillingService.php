@@ -9,12 +9,14 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class ZohoBillingService
 {
     public function getAccessToken(): string
     {
+        $this->validateConfig();
         return Cache::remember('zoho_access_token', now()->addMinutes(50), function (): string {
             try {
                 $response = Http::asForm()->post($this->getAccountsTokenUrl(), [
@@ -60,6 +62,7 @@ class ZohoBillingService
 
     protected function client(): PendingRequest
     {
+        $this->validateConfig();
         return Http::withHeaders([
             'Authorization' => 'Zoho-oauthtoken '.$this->getAccessToken(),
             'X-com-zoho-subscriptions-organizationid' => (string) config('zoho.org_id'),
@@ -92,19 +95,38 @@ class ZohoBillingService
     public function getCustomer(string $id): array { return $this->safeZohoCall('getCustomer', fn () => $this->client()->get("/customers/{$id}")->throw()->json()); }
     public function verifyWebhook(?string $token): bool { return hash_equals((string) config('zoho.webhook_token'), (string) $token); }
 
+
+
+    private function validateConfig(): void
+    {
+        $required = [
+            'zoho.client_id' => config('zoho.client_id'),
+            'zoho.client_secret' => config('zoho.client_secret'),
+            'zoho.refresh_token' => config('zoho.refresh_token'),
+            'zoho.org_id' => config('zoho.org_id'),
+            'zoho.base_url' => config('zoho.base_url'),
+        ];
+
+        foreach ($required as $key => $value) {
+            if (blank($value)) {
+                throw new RuntimeException("Missing required Zoho configuration: {$key}");
+            }
+        }
+    }
+
     private function safeZohoCall(string $action, callable $callback, array $payload = []): array
     {
         try {
             $result = $callback();
-            Log::info("Zoho API success: {$action}", ['payload' => $payload, 'response' => $result]);
+            Log::info("Zoho API success: {$action}", ['payload' => $payload, 'response' => $result, 'base_url' => config('zoho.base_url')]);
 
             return is_array($result) ? $result : [];
         } catch (RequestException $exception) {
             $response = $exception->response;
-            Log::error("Zoho API request failed: {$action}", ['payload' => $payload, 'status' => $response?->status(), 'body' => $response?->body(), 'message' => $exception->getMessage()]);
+            Log::error("Zoho API request failed: {$action}", ['payload' => $payload, 'status' => $response?->status(), 'url' => (string)($response?->effectiveUri() ?? ''), 'headers' => ['Authorization' => 'Zoho-oauthtoken '.Str::mask((string)$this->getAccessToken(), '*', 6), 'X-com-zoho-subscriptions-organizationid' => config('zoho.org_id')], 'body' => $response?->body(), 'message' => $exception->getMessage(), 'file' => $exception->getFile(), 'line' => $exception->getLine()]);
             throw new RuntimeException("Zoho API {$action} failed: ".($response?->body() ?: $exception->getMessage()));
         } catch (\Throwable $exception) {
-            Log::error("Zoho API exception: {$action}", ['payload' => $payload, 'message' => $exception->getMessage(), 'trace' => $exception->getTraceAsString()]);
+            Log::error("Zoho API exception: {$action}", ['payload' => $payload, 'base_url' => config('zoho.base_url'), 'headers' => ['Authorization' => 'Zoho-oauthtoken '.Str::mask((string) Cache::get('zoho_access_token', ''), '*', 6), 'X-com-zoho-subscriptions-organizationid' => config('zoho.org_id')], 'message' => $exception->getMessage(), 'file' => $exception->getFile(), 'line' => $exception->getLine(), 'trace' => $exception->getTraceAsString()]);
             throw $exception;
         }
     }

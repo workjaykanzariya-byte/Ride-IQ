@@ -15,29 +15,33 @@ class MembershipController extends Controller
 {
     public function __construct(private ZohoBillingService $zoho) {}
 
-    public function plans(): JsonResponse
+    public function plans(Request $request): JsonResponse
     {
         try {
+            Log::info('Membership plans API called', ['user_id' => optional($request->user())->id, 'base_url' => config('zoho.base_url'), 'org_id' => config('zoho.org_id')]);
+
             if (! MembershipPlan::exists()) {
+                Log::info('Membership plans table empty, syncing from Zoho');
                 $this->zoho->syncPlansFromZoho();
             }
 
             return response()->json(['success' => true, 'message' => 'Plans fetched', 'data' => ['plans' => MembershipPlan::where('status', 'active')->get()]]);
         } catch (\Throwable $exception) {
-            Log::error('Membership plans fetch failed', ['message' => $exception->getMessage(), 'trace' => $exception->getTraceAsString()]);
+            Log::error('Membership plans fetch failed', ['message' => $exception->getMessage(), 'file' => $exception->getFile(), 'line' => $exception->getLine(), 'trace' => $exception->getTraceAsString()]);
 
             return response()->json(['success' => false, 'message' => $exception->getMessage(), 'errors' => []], 500);
         }
     }
 
-    public function syncPlans(): JsonResponse
+    public function syncPlans(Request $request): JsonResponse
     {
         try {
+            Log::info('Membership plan sync API called', ['user_id' => optional($request->user())->id, 'base_url' => config('zoho.base_url'), 'org_id' => config('zoho.org_id')]);
             $count = $this->zoho->syncPlansFromZoho();
 
             return response()->json(['success' => true, 'message' => 'Plans synced', 'data' => ['count' => $count]]);
         } catch (\Throwable $exception) {
-            Log::error('Membership plans sync failed', ['message' => $exception->getMessage(), 'trace' => $exception->getTraceAsString()]);
+            Log::error('Membership plans sync failed', ['message' => $exception->getMessage(), 'file' => $exception->getFile(), 'line' => $exception->getLine(), 'trace' => $exception->getTraceAsString()]);
 
             return response()->json(['success' => false, 'message' => $exception->getMessage(), 'errors' => []], 500);
         }

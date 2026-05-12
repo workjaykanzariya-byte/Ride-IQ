@@ -135,13 +135,32 @@ class ZohoBillingService
     {
         $count = 0;
         foreach ($this->getPlans() as $plan) {
+            $price = $this->extractPlanPrice($plan);
+            $intervalCount = (int) Arr::get($plan, 'interval', Arr::get($plan, 'recurring_interval', 1));
+            if ($intervalCount < 1) {
+                $intervalCount = 1;
+            }
+
+            $intervalUnit = (string) Arr::get($plan, 'interval_unit', Arr::get($plan, 'recurring_interval_unit', 'months'));
+            $currencyCode = (string) Arr::get($plan, 'currency_code', Arr::get($plan, 'price_brackets.0.currency_code', 'USD'));
+
+            Log::info('Syncing Zoho membership plan', [
+                'plan_code' => Arr::get($plan, 'plan_code'),
+                'recurring_price' => Arr::get($plan, 'recurring_price'),
+                'price_bracket_price' => Arr::get($plan, 'price_brackets.0.price'),
+                'resolved_price' => $price,
+                'interval_count' => $intervalCount,
+                'interval_unit' => $intervalUnit,
+                'currency_code' => $currencyCode,
+            ]);
+
             MembershipPlan::updateOrCreate(['zoho_plan_code' => Arr::get($plan, 'plan_code')], [
                 'name' => Arr::get($plan, 'name'),
                 'description' => Arr::get($plan, 'description'),
-                'price' => Arr::get($plan, 'price', 0),
-                'interval_count' => Arr::get($plan, 'interval', 1),
-                'interval_unit' => Arr::get($plan, 'interval_unit', 'months'),
-                'currency_code' => Arr::get($plan, 'currency_code', 'INR'),
+                'price' => $price,
+                'interval_count' => $intervalCount,
+                'interval_unit' => $intervalUnit,
+                'currency_code' => $currencyCode,
                 'status' => Arr::get($plan, 'status', 'active'),
                 'raw_response_json' => $plan,
             ]);
@@ -149,5 +168,25 @@ class ZohoBillingService
         }
 
         return $count;
+    }
+
+    private function extractPlanPrice(array $plan): float
+    {
+        $recurringPrice = Arr::get($plan, 'recurring_price');
+        if (is_numeric($recurringPrice)) {
+            return (float) $recurringPrice;
+        }
+
+        $priceBracketPrice = Arr::get($plan, 'price_brackets.0.price');
+        if (is_numeric($priceBracketPrice)) {
+            return (float) $priceBracketPrice;
+        }
+
+        $basePrice = Arr::get($plan, 'price');
+        if (is_numeric($basePrice)) {
+            return (float) $basePrice;
+        }
+
+        return 0.0;
     }
 }
